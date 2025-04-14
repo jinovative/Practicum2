@@ -127,6 +127,23 @@ void rm_command(const char *remote_path) {
     close(sock);
 }
 
+void ls_command(const char *path) {
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+    server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
+    connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr));
+
+    dprintf(sock, "LS\n%s\n", path ? path : "");
+
+    char buffer[BUFFER_SIZE];
+    while (read(sock, buffer, sizeof(buffer)) > 0) {
+        printf("%s", buffer);
+    }
+    close(sock);
+}
+
 // Modified main to support permission flag (Option 4b)
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -134,6 +151,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "  WRITE local_file remote_file [READONLY]\n");
         fprintf(stderr, "  GET remote_file local_file\n");
         fprintf(stderr, "  RM remote_file\n");
+        fprintf(stderr, "  LS [path]\n");  // Make sure this is present
         return 1;
     }
 
@@ -152,6 +170,10 @@ int main(int argc, char *argv[]) {
     } 
     else if (strcmp(argv[1], "RM") == 0 && argc == 3) {
         rm_command(argv[2]);
+    } 
+    
+    else if (strcmp(argv[1], "LS") == 0) { // LS command 
+    ls_command(argc > 2 ? argv[2] : ".");  // Default to current dir if no path specified
     }
     else {
         fprintf(stderr, "Invalid usage.\n");
