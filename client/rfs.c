@@ -57,8 +57,8 @@ void write_command(const char *local_path, const char *remote_path, const char *
     //connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
     // 5. send file data protocol
-    dprintf(sock, "WRITE\n%s\n%ld\n", remote_path, fsize);
-    write(sock, file_data, fsize);
+    dprintf(sock, "WRITE\n%s\n%ld\n", remote_path, fsize, perm_flag ? perm_flag : "");
+    //write(sock, file_data, fsize);
 
     // 6. send file data
     if (write(sock, file_data, fsize) != fsize) {
@@ -86,12 +86,13 @@ void get_command(const char *remote_path, const char *local_path) {
     // 3. receive file size
     char header[100];
     read(sock, header, sizeof(header));
-    long file_size = atol(header);  // 크기 파싱
+    char *size_str = strtok(header, "\n");
+    long file_size = atol(size_str);
 
-    // 4. save file
+    // Step 4: receive file data
     FILE *fp = fopen(local_path, "wb");
     if (!fp) {
-        perror("Cannot open file to write");
+        perror("Cannot open local file to write");
         close(sock);
         return;
     }

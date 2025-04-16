@@ -146,6 +146,14 @@ void handle_client(int client_sock) {
 
         // Process file transfer
         long file_size = atol(arg2);
+
+        fprintf(stderr, "DEBUG: arg1=%s, arg2=%s, file_size=%ld, arg3=%s\n", arg1, arg2, file_size, arg3 ? arg3 : "NULL");
+        if (file_size <= 0) {
+            dprintf(client_sock, "ERROR: Invalid file size\n");
+            close(client_sock);
+            return;
+        }
+
         FILE *fp = fopen(arg1, "wb");
         if (!fp) {
             perror("Failed to open file");
@@ -154,12 +162,12 @@ void handle_client(int client_sock) {
             return;
         }
 
-        long received = 0;
-        while (received < file_size) {
-            ssize_t n = read(client_sock, buffer, BUFFER_SIZE);
+        long remaining = file_size;
+        while (remaining > 0) {
+            ssize_t n = read(client_sock, buffer, remaining < BUFFER_SIZE ? remaining : BUFFER_SIZE);
             if (n <= 0) break;
             fwrite(buffer, 1, n, fp);
-            received += n;
+            remaining -= n;
         }
         fclose(fp);
 
@@ -307,11 +315,10 @@ void handle_get(int client_sock, const char *path) {
 
     // send file data
     char buffer[BUFFER_SIZE];
-    long sent = 0;
-    while (sent < fsize) {
-        size_t n = fread(buffer, 1, BUFFER_SIZE, fp);
-        send(client_sock, buffer, n, 0);
-        sent += n;
+    size_t n;
+    while ((n = fread(buffer, 1, BUFFER_SIZE, fp)) > 0) {
+        ssize_t sent_bytes = send(client_sock, buffer, n, 0);
+        if (sent_bytes <= 0) break;
     }
 
     fclose(fp);
