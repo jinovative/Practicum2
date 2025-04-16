@@ -75,26 +75,38 @@ void set_permission(const char *filename, file_permission perm) {
 
 // Added for LS command
 void handle_ls(int client_sock, const char *path) {
-    DIR *dir = opendir(path ? path : ".");
-    if (!dir) {
-        dprintf(client_sock, "ERROR: Could not open directory\n");
+    struct stat st;
+    if (stat(path, &st) == -1) {
+        dprintf(client_sock, "ERROR: File or directory not found\n");
         return;
     }
 
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) {
-        // Skip . and .. entries
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-            dprintf(client_sock, "%s\n", entry->d_name);
+    if (S_ISDIR(st.st_mode)) {
+        // 디렉토리: 내부 항목 출력
+        DIR *dir = opendir(path);
+        if (!dir) {
+            dprintf(client_sock, "ERROR: Could not open directory\n");
+            return;
         }
+
+        struct dirent *entry;
+        while ((entry = readdir(dir)) != NULL) {
+            if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+                dprintf(client_sock, "%s\n", entry->d_name);
+            }
+        }
+        closedir(dir);
+    } else {
+        // 일반 파일: 메타데이터 출력
+        long size = st.st_size;
+        const char *perm = check_permission(path, 0) ? "READWRITE" : "READONLY";
+        dprintf(client_sock, "File: %s\nSize: %ld bytes\nPermission: %s\n", path, size, perm);
     }
-    closedir(dir);
 }
 
 // 수정된 handle_client() 코드 
 
 void handle_client(int client_sock) {
-
     // Initialize buffer and read command
     char buffer[BUFFER_SIZE] = {0};
     ssize_t bytes_read = read(client_sock, buffer, sizeof(buffer)-1); // Leave space for null terminator
