@@ -1,5 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -g
+# Added -pthread for threading support and -D_GNU_SOURCE for dirent
+CFLAGS = -Wall -Wextra -g -pthread -D_GNU_SOURCE
 
 CLIENT_SRC = client/rfs.c
 SERVER_SRC = server/rfserver.c

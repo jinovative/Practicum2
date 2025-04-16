@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <pthread.h>    // Added for Option 4a (Multi-Client)
 #include <sys/stat.h>   // Added for Option 4b (Permissions)
+#include <dirent.h>     // Added for LS command
+#include <errno.h>
 
 #define PORT 2024
 #define BUFFER_SIZE 1024 
@@ -35,6 +37,7 @@ pthread_mutex_t perm_mutex = PTHREAD_MUTEX_INITIALIZER;  // For thread-safe perm
 
 void handle_get(int client_sock, const char *path);
 void handle_rm(int client_sock, const char *path);
+void handle_ls(int client_sock, const char *path); // Added for LS command
 
 // Added for Option 4b - Check file permissions
 int check_permission(const char *filename, int require_write) {
@@ -70,9 +73,28 @@ void set_permission(const char *filename, file_permission perm) {
     pthread_mutex_unlock(&perm_mutex);
 }
 
+// Added for LS command
+void handle_ls(int client_sock, const char *path) {
+    DIR *dir = opendir(path ? path : ".");
+    if (!dir) {
+        dprintf(client_sock, "ERROR: Could not open directory\n");
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip . and .. entries
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            dprintf(client_sock, "%s\n", entry->d_name);
+        }
+    }
+    closedir(dir);
+}
+
 // 수정된 handle_client() 코드 
 
 void handle_client(int client_sock) {
+
     // Initialize buffer and read command
     char buffer[BUFFER_SIZE] = {0};
     ssize_t bytes_read = read(client_sock, buffer, sizeof(buffer)-1); // Leave space for null terminator
@@ -164,6 +186,10 @@ void handle_client(int client_sock) {
                 pthread_mutex_unlock(&perm_mutex);
             }
         }
+    }
+
+    else if (strcmp(cmd, "LS") == 0) {  // This must exist
+        handle_ls(client_sock, arg1);    // arg1 is the directory path
     }
     else {
         dprintf(client_sock, "ERROR: Unknown command\n");
